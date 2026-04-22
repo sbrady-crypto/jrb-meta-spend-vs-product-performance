@@ -16,6 +16,13 @@
 html, body { background: #fff; color: #000; font-family: 'RingsideWideWeb', Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 body { font-size: 14px; line-height: 1.5; }
 
+.container { max-width: 1100px; margin: 0 auto; }
+
+/* Black topbar */
+.topbar { background: #000; padding: 10px 48px; display: flex; align-items: center; justify-content: space-between; }
+.topbar__logo { font-family: 'GeogrotesqueCondBoldWeb', Arial, sans-serif; font-size: 14px; letter-spacing: 3px; color: #fff; text-transform: uppercase; }
+.topbar__pill { background: #059669; color: #fff; font-family: 'GeogrotesqueCondBoldWeb', Arial, sans-serif; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px; border-radius: 2px; }
+
 .util-bar { background: #f6f2eb; border-bottom: 1px solid #ebebeb; padding: 8px 48px; font-family: 'BaseMonoWideWeb', monospace; font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
 .util-bar .meta span + span::before { content: '  ·  '; opacity: 0.4; }
 
@@ -33,6 +40,7 @@ body { font-size: 14px; line-height: 1.5; }
 .custom-range.hidden { display: none; }
 
 .hero { padding: 72px 48px 48px; border-bottom: 1px solid #ebebeb; }
+.hero .container { max-width: 1100px; }
 .hero .eyebrow { font-family: 'GeogrotesqueCondBoldWeb', Arial, sans-serif; text-transform: uppercase; font-size: 13px; letter-spacing: 1.2px; margin-bottom: 24px; }
 .hero h1 { font-family: 'Canela', 'Georgia', serif; font-weight: 300; font-size: 52px; line-height: 1.08; letter-spacing: -0.01em; max-width: 1200px; margin-bottom: 20px; }
 .hero .sub { font-family: 'RingsideWideWeb', Arial, sans-serif; font-size: 13px; letter-spacing: 0.3px; max-width: 900px; color: #000; }
@@ -152,6 +160,11 @@ tr.row-efficient td:first-child { padding-left: 16px; }
 </head>
 <body>
 
+<div class="topbar">
+  <div class="topbar__logo">Jones Road Beauty</div>
+  <div class="topbar__pill" id="topbar-pill">Growth Analytics · Dashboard</div>
+</div>
+
 <div class="util-bar">
   <div class="meta">
     <span>JRB · Growth Analytics</span>
@@ -182,12 +195,15 @@ tr.row-efficient td:first-child { padding-left: 16px; }
 </div>
 
 <header class="hero">
-  <div class="eyebrow">Growth Analytics · Product-Level Spend Allocation Review</div>
-  <h1>Meta Ad Spend vs. New-Customer Revenue by Product</h1>
-  <p class="sub">Analysis comparing Meta investment by product against Shopify first-time customer revenue, identifying where paid allocation and acquisition outcomes are misaligned. Campaigns containing <code>returning</code>, <code>viewcontent</code>, or <code>quiz</code> are excluded; Meta spend is grouped by product keyword in the ad name; Shopify revenue is restricted to new-customer orders. Use the period selector above to switch windows.</p>
+  <div class="container">
+    <div class="eyebrow">Growth Analytics · Product-Level Spend Allocation Review</div>
+    <h1>Meta Ad Spend vs. New-Customer Revenue by Product</h1>
+    <p class="sub">Analysis comparing Meta investment by product against Shopify first-time customer revenue, identifying where paid allocation and acquisition outcomes are misaligned. Campaigns containing <code>returning</code>, <code>viewcontent</code>, or <code>quiz</code> are excluded; Meta spend is grouped by product keyword in the ad name; Shopify revenue is restricted to new-customer orders. Use the period selector above to switch windows.</p>
+  </div>
 </header>
 
 <section>
+ <div class="container">
   <div class="eyebrow">Summary Metrics <span class="period-tag" id="tag-totals">L12W</span></div>
   <h2>Headline numbers for the selected period.</h2>
   <div class="scorecards">
@@ -222,18 +238,22 @@ tr.row-efficient td:first-child { padding-left: 16px; }
       <div class="delta" id="sc-cac-delta">—</div>
     </div>
   </div>
+ </div>
 </section>
 
 <section class="alt">
+ <div class="container">
   <div class="eyebrow">Weekly Pacing <span class="period-tag" id="tag-weekly">L12W</span></div>
   <h2>Spend and new-customer revenue, week by week.</h2>
   <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Black line = Meta spend. Gold = new-customer revenue. Red dashed = NC-MER (right axis).</p>
   <div class="chart-wrap tall">
     <canvas id="weeklyTrend"></canvas>
   </div>
+ </div>
 </section>
 
 <section>
+ <div class="container">
   <div class="eyebrow">The Gap <span class="period-tag" id="tag-gap">L12W</span></div>
   <h2>Share of spend vs. share of new-customer revenue.</h2>
   <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px; margin-bottom: 20px;">Red = overspending relative to revenue contribution. Green = underspending (efficiency opportunity). Gold = efficient at scale. Grey = no meaningful spend in this window.</p>
@@ -248,9 +268,11 @@ tr.row-efficient td:first-child { padding-left: 16px; }
     <div><span class="swatch" style="background:#c9a35a;"></span>NC revenue share</div>
   </div>
   <div id="gap-rows"></div>
+ </div>
 </section>
 
 <section class="alt">
+ <div class="container">
   <div class="eyebrow">Product Scorecard <span class="period-tag" id="tag-leader">L12W</span></div>
   <h2>All 19 products, ranked by Meta spend.</h2>
   <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px; margin-bottom: 20px;">NC-MER = new-customer revenue ÷ Meta spend. CAC = Meta spend ÷ new customer orders. Period Δ compares the selected window to the equal-length window immediately before it.</p>
@@ -273,15 +295,19 @@ tr.row-efficient td:first-child { padding-left: 16px; }
     </thead>
     <tbody></tbody>
   </table>
+ </div>
 </section>
 
 <section>
+ <div class="container">
   <div class="eyebrow">Reallocation Candidates <span class="period-tag" id="tag-insights">L12W</span></div>
   <h2>Four products driving the largest allocation gap.</h2>
   <div class="insights" id="insight-cards"></div>
+ </div>
 </section>
 
 <section class="alt">
+ <div class="container">
   <div class="eyebrow">Weekly Matrix <span class="period-tag" id="tag-matrix">L12W</span></div>
   <h2>Spend and new-customer revenue by product, by week.</h2>
   <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px; margin-bottom: 24px;">Sparklines cover the selected window. Left: Meta spend. Right: Shopify new-customer revenue.</p>
@@ -301,18 +327,22 @@ tr.row-efficient td:first-child { padding-left: 16px; }
     </thead>
     <tbody></tbody>
   </table>
+ </div>
 </section>
 
 <section>
+ <div class="container">
   <div class="eyebrow">Efficiency Map <span class="period-tag" id="tag-eff">L12W</span></div>
   <h2>Every product plotted: spend volume vs. new-customer efficiency.</h2>
   <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Bubble size = number of new customer orders. Log-scale X.</p>
   <div class="chart-wrap tall">
     <canvas id="efficiencyScatter"></canvas>
   </div>
+ </div>
 </section>
 
 <section class="alt">
+ <div class="container">
   <div class="eyebrow">Data Notes</div>
   <h2>How to read this.</h2>
   <div class="notes">
@@ -327,6 +357,7 @@ tr.row-efficient td:first-child { padding-left: 16px; }
       <li><strong>NC-MER</strong> excludes LTV, repeat purchases, and cross-sell. A low NC-MER on a hero product may still be profitable over the customer lifetime — treat this as a directional acquisition signal, not final P&amp;L.</li>
     </ul>
   </div>
+ </div>
 </section>
 
 <script>
