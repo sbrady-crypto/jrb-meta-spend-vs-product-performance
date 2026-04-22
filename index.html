@@ -381,7 +381,7 @@ const TOOLTIP_STYLE = {
   borderWidth: 0,
   titleFont: { family: 'GeogrotesqueCondBoldWeb', size: 12, weight: '700' },
   titleAlign: 'left',
-  bodyFont: { family: 'BaseMonoWideWeb', size: 11 },
+  bodyFont: { family: 'RingsideWideWeb', size: 12 },
   bodySpacing: 6,
   padding: 14,
   cornerRadius: 2,
@@ -906,13 +906,16 @@ function renderScatter(view) {
           callbacks: {
             title: (ctxs) => ctxs[0].label.toUpperCase(),
             label: () => '',
-            afterLabel: (ctx) => [
-              'NC-MER       ' + ctx.parsed.x.toFixed(2) + 'x',
-              'NC revenue   ' + fmtD(revs[ctx.dataIndex]),
-              '  share      ' + revShares[ctx.dataIndex].toFixed(1) + '% of total',
-              'Spend        ' + fmtD(spends[ctx.dataIndex]),
-              'vs avg       ' + (((ctx.parsed.x / avgMer) - 1) * 100 >= 0 ? '+' : '') + (((ctx.parsed.x / avgMer) - 1) * 100).toFixed(0) + '% (' + avgMer.toFixed(2) + 'x)',
-            ]
+            afterLabel: (ctx) => {
+              const share = revShares[ctx.dataIndex].toFixed(1);
+              const vsAvgPct = ((ctx.parsed.x / avgMer) - 1) * 100;
+              return [
+                'NC-MER: ' + ctx.parsed.x.toFixed(2) + 'x',
+                'NC revenue: ' + fmtD(revs[ctx.dataIndex]) + ' (' + share + '% of total)',
+                'Spend: ' + fmtD(spends[ctx.dataIndex]),
+                'vs category avg: ' + (vsAvgPct >= 0 ? '+' : '') + vsAvgPct.toFixed(0) + '%',
+              ];
+            }
           }
         }
       },
@@ -933,7 +936,7 @@ function renderScatter(view) {
     },
     plugins: [{
       id: 'avgLineAndLabels',
-      afterDraw: (chart) => {
+      afterDatasetsDraw: (chart) => {
         const { ctx, chartArea, scales } = chart;
         const xAvg = scales.x.getPixelForValue(avgMer);
         // Category-average dashed line
