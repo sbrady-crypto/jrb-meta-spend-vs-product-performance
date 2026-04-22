@@ -370,6 +370,29 @@ let state = { period: 'L12W', customStart: 0, customEnd: DATA.weeks.length - 1 }
 const charts = {};
 
 // ——————————————————————————————
+// Shared Chart.js tooltip style
+// ——————————————————————————————
+const TOOLTIP_STYLE = {
+  enabled: true,
+  backgroundColor: '#000',
+  titleColor: '#fff',
+  bodyColor: '#fff',
+  borderColor: '#000',
+  borderWidth: 0,
+  titleFont: { family: 'GeogrotesqueCondBoldWeb', size: 12, weight: '700' },
+  titleAlign: 'left',
+  bodyFont: { family: 'BaseMonoWideWeb', size: 11 },
+  bodySpacing: 6,
+  padding: 14,
+  cornerRadius: 2,
+  caretSize: 7,
+  caretPadding: 10,
+  displayColors: false,
+  boxPadding: 0,
+  usePointStyle: false,
+};
+
+// ——————————————————————————————
 // Formatters
 // ——————————————————————————————
 const fmtD = n => '$' + Math.round(n).toLocaleString('en-US');
@@ -608,6 +631,7 @@ function renderWeeklyTrend(view) {
       plugins: {
         legend: { position: 'bottom', labels: { font: { family: 'GeogrotesqueCondBoldWeb', size: 12 }, usePointStyle: true, padding: 20 } },
         tooltip: {
+          ...TOOLTIP_STYLE,
           callbacks: {
             label: (ctx) => ctx.dataset.label + ': ' + fmtD(ctx.parsed.y),
             afterBody: (ctxs) => {
@@ -876,12 +900,21 @@ function renderScatter(view) {
       layout: { padding: { right: 180, top: 36 } },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => [
-          'NC-MER: ' + ctx.parsed.x.toFixed(2) + 'x',
-          'NC revenue: ' + fmtD(revs[ctx.dataIndex]) + ' (' + revShares[ctx.dataIndex].toFixed(1) + '% of total)',
-          'Spend: ' + fmtD(spends[ctx.dataIndex]),
-          'vs avg (' + avgMer.toFixed(2) + 'x): ' + (((ctx.parsed.x / avgMer) - 1) * 100).toFixed(0) + '%'
-        ]}}
+        tooltip: {
+          ...TOOLTIP_STYLE,
+          position: 'nearest',
+          callbacks: {
+            title: (ctxs) => ctxs[0].label.toUpperCase(),
+            label: () => '',
+            afterLabel: (ctx) => [
+              'NC-MER       ' + ctx.parsed.x.toFixed(2) + 'x',
+              'NC revenue   ' + fmtD(revs[ctx.dataIndex]),
+              '  share      ' + revShares[ctx.dataIndex].toFixed(1) + '% of total',
+              'Spend        ' + fmtD(spends[ctx.dataIndex]),
+              'vs avg       ' + (((ctx.parsed.x / avgMer) - 1) * 100 >= 0 ? '+' : '') + (((ctx.parsed.x / avgMer) - 1) * 100).toFixed(0) + '% (' + avgMer.toFixed(2) + 'x)',
+            ]
+          }
+        }
       },
       scales: {
         x: {
