@@ -334,7 +334,7 @@ tr.row-efficient td:first-child { padding-left: 16px; }
  <div class="container">
   <div class="eyebrow">Efficiency Ranking <span class="period-tag" id="tag-eff">L12W</span></div>
   <h2>NC-MER by product, sorted high to low.</h2>
-  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Each bar is one product. Length = NC-MER (new-customer revenue per dollar of spend). Color indicates tier vs. category average. Numbers to the right show spend volume so you can see which efficient products are actually at scale.</p>
+  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Each bar is one product. Length = NC-MER (new-customer revenue per dollar of spend). Color indicates tier vs. category average. To the right of each bar: NC revenue (bold) and spend (muted). Bars are <strong>faded</strong> when the product drives less than 1% of total new-customer revenue — efficient ratios on tiny bases don't necessarily justify scaling spend.</p>
   <div class="chart-wrap tall">
     <canvas id="efficiencyBars"></canvas>
   </div>
@@ -821,7 +821,6 @@ function renderMatrix(view) {
 
 function renderScatter(view) {
   const avgMer = view.totals.nc_mer;
-  // Only products with meaningful spend; sort by NC-MER desc
   const ranked = view.products
     .filter(p => p.totals.spend > 500 && p.efficiency.nc_mer != null)
     .sort((a, b) => b.efficiency.nc_mer - a.efficiency.nc_mer);
@@ -835,10 +834,25 @@ function renderScatter(view) {
     return '#b02b2b';
   };
 
+  // Opacity reduced for products driving very little NC revenue (< 1% of total)
+  const revShareThreshold = 1.0;
+  const opacityFor = (p) => p.share.rev_pct < revShareThreshold ? 0.35 : 1.0;
+
   const labels = ranked.map(p => p.name);
   const mers = ranked.map(p => p.efficiency.nc_mer);
-  const colors = ranked.map(p => tierColor(p.efficiency.nc_mer));
+  const colors = ranked.map((p, i) => {
+    const base = tierColor(p.efficiency.nc_mer);
+    if (opacityFor(p) === 1.0) return base;
+    // Apply reduced opacity to rgba or hex
+    if (base.startsWith('rgba')) return base.replace(/[\d.]+\)$/, '0.3)');
+    // Convert hex to rgba with 0.3
+    const hex = base.replace('#', '');
+    const r = parseInt(hex.slice(0,2), 16), g = parseInt(hex.slice(2,4), 16), b = parseInt(hex.slice(4,6), 16);
+    return `rgba(${r},${g},${b},0.3)`;
+  });
   const spends = ranked.map(p => p.totals.spend);
+  const revs = ranked.map(p => p.totals.new_sales);
+  const revShares = ranked.map(p => p.share.rev_pct);
   const maxMer = Math.max(...mers, avgMer);
 
   if (charts.scatter) charts.scatter.destroy();
@@ -858,10 +872,13 @@ function renderScatter(view) {
     options: {
       indexAxis: 'y',
       maintainAspectRatio: false,
+      // Reserve room on the right for revenue labels
+      layout: { padding: { right: 180, top: 36 } },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: (ctx) => [
           'NC-MER: ' + ctx.parsed.x.toFixed(2) + 'x',
+          'NC revenue: ' + fmtD(revs[ctx.dataIndex]) + ' (' + revShares[ctx.dataIndex].toFixed(1) + '% of total)',
           'Spend: ' + fmtD(spends[ctx.dataIndex]),
           'vs avg (' + avgMer.toFixed(2) + 'x): ' + (((ctx.parsed.x / avgMer) - 1) * 100).toFixed(0) + '%'
         ]}}
@@ -872,7 +889,7 @@ function renderScatter(view) {
           ticks: { font: { family: 'BaseMonoWideWeb', size: 10 }, callback: v => v.toFixed(1) + 'x' },
           grid: { color: '#ebebeb' },
           beginAtZero: true,
-          suggestedMax: maxMer * 1.15,
+          suggestedMax: maxMer * 1.12,
         },
         y: {
           ticks: { font: { family: 'RingsideWideWeb', size: 11 }, color: '#000' },
@@ -882,11 +899,11 @@ function renderScatter(view) {
       animation: false,
     },
     plugins: [{
-      id: 'avgLineAndSpendLabels',
+      id: 'avgLineAndLabels',
       afterDraw: (chart) => {
         const { ctx, chartArea, scales } = chart;
-        // Vertical line at category average
         const xAvg = scales.x.getPixelForValue(avgMer);
+        // Category-average dashed line
         ctx.save();
         ctx.strokeStyle = '#000';
         ctx.setLineDash([4, 4]);
@@ -896,17 +913,37 @@ function renderScatter(view) {
         ctx.lineTo(xAvg, chartArea.bottom);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.font = '10px BaseMonoWideWeb, monospace';
+        // Place label ABOVE the plot area so it doesn't collide with bars
+        const labelY = chartArea.top - 10;
+        const labelText = 'CATEGORY AVG ' + avgMer.toFixed(2) + 'x';
+        ctx.font = '10px GeogrotesqueCondBoldWeb, Arial';
+        const labelWidth = ctx.measureText(labelText).width;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(xAvg - labelWidth/2 - 6, labelY - 12, labelWidth + 12, 16);
         ctx.fillStyle = '#000';
-        ctx.textAlign = 'left';
-        ctx.fillText('Category avg ' + avgMer.toFixed(2) + 'x', xAvg + 6, chartArea.top + 12);
-        // Spend label to the right of each bar
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#757575';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelText, xAvg, labelY - 4);
+
+        // Right-side labels: NC rev (bold, black) + spend (muted)
         chart.data.labels.forEach((label, i) => {
           const barEnd = scales.x.getPixelForValue(mers[i]);
           const y = scales.y.getPixelForValue(i);
-          ctx.fillText(fmtDK(spends[i]) + ' spend', barEnd + 8, y + 3);
+          const rev = revs[i];
+          const spend = spends[i];
+          const isSmall = revShares[i] < revShareThreshold;
+          // Revenue — primary
+          ctx.font = 'bold 11px BaseMonoWideWeb, monospace';
+          ctx.fillStyle = isSmall ? '#999' : '#000';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          const revText = fmtDK(rev) + ' rev';
+          ctx.fillText(revText, barEnd + 10, y - 0.5);
+          const revW = ctx.measureText(revText).width;
+          // Spend — secondary, muted
+          ctx.font = '10px BaseMonoWideWeb, monospace';
+          ctx.fillStyle = '#999';
+          ctx.fillText('· ' + fmtDK(spend) + ' spend', barEnd + 10 + revW + 4, y + 0.5);
         });
         ctx.restore();
       }
