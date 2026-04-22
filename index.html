@@ -245,7 +245,7 @@ tr.row-efficient td:first-child { padding-left: 16px; }
  <div class="container">
   <div class="eyebrow">Weekly Pacing <span class="period-tag" id="tag-weekly">L12W</span></div>
   <h2>Spend and new-customer revenue, week by week.</h2>
-  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Black line = Meta spend. Gold = new-customer revenue. Red dashed = NC-MER (right axis).</p>
+  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Black = Meta spend. Gold = new-customer revenue. Hover any week to see NC-MER.</p>
   <div class="chart-wrap tall">
     <canvas id="weeklyTrend"></canvas>
   </div>
@@ -310,7 +310,7 @@ tr.row-efficient td:first-child { padding-left: 16px; }
  <div class="container">
   <div class="eyebrow">Weekly Matrix <span class="period-tag" id="tag-matrix">L12W</span></div>
   <h2>Spend and new-customer revenue by product, by week.</h2>
-  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px; margin-bottom: 24px;">Sparklines cover the selected window. Left: Meta spend. Right: Shopify new-customer revenue.</p>
+  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px; margin-bottom: 24px;">Sparklines cover the selected window. Left: Meta spend. Right: Shopify new-customer revenue. <strong style="color:#0a7a3a;">Green</strong> = trending up 10%+, <strong style="color:#b02b2b;">red</strong> = trending down 10%+, black = flat (first-third avg vs. last-third avg).</p>
   <table id="matrix">
     <thead>
       <tr>
@@ -332,11 +332,11 @@ tr.row-efficient td:first-child { padding-left: 16px; }
 
 <section>
  <div class="container">
-  <div class="eyebrow">Efficiency Map <span class="period-tag" id="tag-eff">L12W</span></div>
-  <h2>Every product plotted: spend volume vs. new-customer efficiency.</h2>
-  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Bubble size = number of new customer orders. Log-scale X.</p>
+  <div class="eyebrow">Efficiency Ranking <span class="period-tag" id="tag-eff">L12W</span></div>
+  <h2>NC-MER by product, sorted high to low.</h2>
+  <p style="font-family: 'RingsideWideWeb', Arial; font-size: 12.5px;">Each bar is one product. Length = NC-MER (new-customer revenue per dollar of spend). Color indicates tier vs. category average. Numbers to the right show spend volume so you can see which efficient products are actually at scale.</p>
   <div class="chart-wrap tall">
-    <canvas id="efficiencyScatter"></canvas>
+    <canvas id="efficiencyBars"></canvas>
   </div>
  </div>
 </section>
@@ -598,21 +598,30 @@ function renderWeeklyTrend(view) {
     data: {
       labels,
       datasets: [
-        { label: 'Meta spend', data: view.weekly.map(w => w.spend), borderColor: '#000', backgroundColor: '#000', borderWidth: 2, tension: 0.2, pointRadius: 3, yAxisID: 'y' },
-        { label: 'NC revenue', data: view.weekly.map(w => w.new_sales), borderColor: '#c9a35a', backgroundColor: '#c9a35a', borderWidth: 2, tension: 0.2, pointRadius: 3, yAxisID: 'y' },
-        { label: 'NC-MER', data: view.weekly.map(w => w.nc_mer), borderColor: '#b02b2b', backgroundColor: '#b02b2b', borderWidth: 1.5, borderDash: [4, 4], tension: 0.2, pointRadius: 2, yAxisID: 'y1' }
+        { label: 'Meta spend', data: view.weekly.map(w => w.spend), borderColor: '#000', backgroundColor: 'rgba(0,0,0,0.05)', borderWidth: 2.5, tension: 0.2, pointRadius: 4, pointBackgroundColor: '#000', fill: true },
+        { label: 'New-customer revenue', data: view.weekly.map(w => w.new_sales), borderColor: '#c9a35a', backgroundColor: 'rgba(201,163,90,0.1)', borderWidth: 2.5, tension: 0.2, pointRadius: 4, pointBackgroundColor: '#c9a35a', fill: true }
       ]
     },
     options: {
       maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'bottom', labels: { font: { family: 'GeogrotesqueCondBoldWeb', size: 12 }, usePointStyle: true } },
-        tooltip: { callbacks: { label: (ctx) => ctx.dataset.label === 'NC-MER' ? ctx.dataset.label + ': ' + (ctx.parsed.y == null ? '—' : ctx.parsed.y.toFixed(2) + 'x') : ctx.dataset.label + ': ' + fmtD(ctx.parsed.y) } }
+        legend: { position: 'bottom', labels: { font: { family: 'GeogrotesqueCondBoldWeb', size: 12 }, usePointStyle: true, padding: 20 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ctx.dataset.label + ': ' + fmtD(ctx.parsed.y),
+            afterBody: (ctxs) => {
+              if (ctxs.length < 2) return '';
+              const wk = view.weekly[ctxs[0].dataIndex];
+              const mer = wk.nc_mer;
+              return mer != null ? 'NC-MER: ' + mer.toFixed(2) + 'x' : '';
+            }
+          }
+        }
       },
       scales: {
         x: { ticks: { font: { family: 'BaseMonoWideWeb', size: 10 } }, grid: { display: false } },
-        y: { ticks: { font: { family: 'BaseMonoWideWeb', size: 10 }, callback: v => fmtDK(v) }, grid: { color: '#ebebeb' } },
-        y1: { position: 'right', ticks: { font: { family: 'BaseMonoWideWeb', size: 10 }, callback: v => v.toFixed(1) + 'x' }, grid: { display: false } }
+        y: { ticks: { font: { family: 'BaseMonoWideWeb', size: 10 }, callback: v => fmtDK(v) }, grid: { color: '#ebebeb' }, beginAtZero: true }
       }
     }
   });
@@ -726,38 +735,61 @@ function renderInsights(view) {
   });
 }
 
-function drawSparkline(id, series, color) {
+function drawSparkline(id, series) {
   const canvas = document.getElementById(id);
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   const max = Math.max(...series, 1);
-  const pad = 2;
+  const pad = 3;
   ctx.clearRect(0, 0, w, h);
   if (series.length < 2) {
-    // Draw a single dot
     if (series.length === 1) {
       ctx.beginPath();
-      ctx.arc(w/2, h/2, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = color;
+      ctx.arc(w/2, h/2, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#757575';
       ctx.fill();
     }
     return;
   }
+  // Direction via linear fit slope — compare first-third avg to last-third avg
+  const third = Math.max(1, Math.floor(series.length / 3));
+  const firstAvg = series.slice(0, third).reduce((s, v) => s + v, 0) / third;
+  const lastAvg = series.slice(-third).reduce((s, v) => s + v, 0) / third;
+  const denom = Math.max(firstAvg, lastAvg, 1);
+  const changePct = denom > 0 ? (lastAvg - firstAvg) / denom * 100 : 0;
+  let stroke, fill;
+  if (changePct > 10) { stroke = '#0a7a3a'; fill = 'rgba(10,122,58,0.15)'; }
+  else if (changePct < -10) { stroke = '#b02b2b'; fill = 'rgba(176,43,43,0.12)'; }
+  else { stroke = '#000'; fill = 'rgba(0,0,0,0.06)'; }
+
+  // Build the path points
+  const points = series.map((v, i) => ({
+    x: pad + (i / (series.length - 1)) * (w - 2 * pad),
+    y: h - pad - (v / max) * (h - 2 * pad)
+  }));
+
+  // Area fill
   ctx.beginPath();
-  series.forEach((v, i) => {
-    const x = pad + (i / (series.length - 1)) * (w - 2 * pad);
-    const y = h - pad - (v / max) * (h - 2 * pad);
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
+  ctx.moveTo(points[0].x, h - pad);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(points[points.length - 1].x, h - pad);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  points.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 2;
   ctx.stroke();
-  const lastX = w - pad;
-  const lastY = h - pad - (series[series.length - 1] / max) * (h - 2 * pad);
+
+  // Last-point dot
+  const last = points[points.length - 1];
   ctx.beginPath();
-  ctx.arc(lastX, lastY, 2.2, 0, Math.PI * 2);
-  ctx.fillStyle = color;
+  ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+  ctx.fillStyle = stroke;
   ctx.fill();
 }
 
@@ -772,40 +804,113 @@ function renderMatrix(view) {
     const ws = p.trends.spend_wow, wr = p.trends.new_sales_wow;
     tr.innerHTML = `
       <td><span class="product">${p.name}</span></td>
-      <td class="sparkline-cell"><canvas id="${s1}" width="120" height="28"></canvas></td>
+      <td class="sparkline-cell"><canvas id="${s1}" width="160" height="44"></canvas></td>
       <td>${fmtDK(p.totals.spend)}</td>
       <td>${fmtDK(p.lastSpend)}</td>
       <td class="delta ${deltaClass(ws)}">${deltaArrow(ws)}${fmtPctBare(ws == null ? null : Math.abs(ws))}</td>
-      <td class="sparkline-cell"><canvas id="${s2}" width="120" height="28"></canvas></td>
+      <td class="sparkline-cell"><canvas id="${s2}" width="160" height="44"></canvas></td>
       <td>${fmtDK(p.totals.new_sales)}</td>
       <td>${fmtDK(p.lastNewSales)}</td>
       <td class="delta ${deltaClass(wr)}">${deltaArrow(wr)}${fmtPctBare(wr == null ? null : Math.abs(wr))}</td>
     `;
     tbody.appendChild(tr);
-    drawSparkline(s1, p.meta_weekly.map(w => w.spend || 0), '#000');
-    drawSparkline(s2, p.shopify_weekly.map(w => w.new_sales || 0), '#c9a35a');
+    drawSparkline(s1, p.meta_weekly.map(w => w.spend || 0));
+    drawSparkline(s2, p.shopify_weekly.map(w => w.new_sales || 0));
   });
 }
 
 function renderScatter(view) {
-  const dataPts = view.products
-    .filter(p => p.totals.spend > 0 && p.efficiency.nc_mer != null)
-    .map(p => ({ x: p.totals.spend, y: p.efficiency.nc_mer, r: Math.max(5, Math.sqrt(p.totals.new_orders) / 4), name: p.name }));
+  const avgMer = view.totals.nc_mer;
+  // Only products with meaningful spend; sort by NC-MER desc
+  const ranked = view.products
+    .filter(p => p.totals.spend > 500 && p.efficiency.nc_mer != null)
+    .sort((a, b) => b.efficiency.nc_mer - a.efficiency.nc_mer);
+
+  const tierColor = (mer) => {
+    const r = avgMer > 0 ? mer / avgMer : 1;
+    if (r >= 1.7) return '#0a7a3a';
+    if (r >= 1.1) return 'rgba(10,122,58,0.6)';
+    if (r >= 0.75) return 'rgba(201,163,90,0.85)';
+    if (r >= 0.4) return 'rgba(176,43,43,0.5)';
+    return '#b02b2b';
+  };
+
+  const labels = ranked.map(p => p.name);
+  const mers = ranked.map(p => p.efficiency.nc_mer);
+  const colors = ranked.map(p => tierColor(p.efficiency.nc_mer));
+  const spends = ranked.map(p => p.totals.spend);
+  const maxMer = Math.max(...mers, avgMer);
+
   if (charts.scatter) charts.scatter.destroy();
-  charts.scatter = new Chart(document.getElementById('efficiencyScatter'), {
-    type: 'bubble',
-    data: { datasets: [{ data: dataPts, backgroundColor: 'rgba(0,0,0,0.75)', borderColor: '#000', borderWidth: 1 }] },
+  charts.scatter = new Chart(document.getElementById('efficiencyBars'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'NC-MER',
+        data: mers,
+        backgroundColor: colors,
+        borderColor: colors,
+        borderWidth: 0,
+        barThickness: 18,
+      }]
+    },
     options: {
+      indexAxis: 'y',
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => { const d = ctx.raw; return [d.name, 'Spend: ' + fmtD(d.x), 'NC-MER: ' + d.y.toFixed(2) + 'x']; } } }
+        tooltip: { callbacks: { label: (ctx) => [
+          'NC-MER: ' + ctx.parsed.x.toFixed(2) + 'x',
+          'Spend: ' + fmtD(spends[ctx.dataIndex]),
+          'vs avg (' + avgMer.toFixed(2) + 'x): ' + (((ctx.parsed.x / avgMer) - 1) * 100).toFixed(0) + '%'
+        ]}}
       },
       scales: {
-        x: { type: 'logarithmic', title: { display: true, text: 'META SPEND (LOG)', font: { family: 'GeogrotesqueCondBoldWeb', size: 11 } }, ticks: { font: { family: 'BaseMonoWideWeb', size: 10 }, callback: v => fmtDK(v) }, grid: { color: '#ebebeb' } },
-        y: { title: { display: true, text: 'NC-MER ($ new revenue / $ spend)', font: { family: 'GeogrotesqueCondBoldWeb', size: 11 } }, ticks: { font: { family: 'BaseMonoWideWeb', size: 10 }, callback: v => v.toFixed(1) + 'x' }, grid: { color: '#ebebeb' } }
+        x: {
+          title: { display: true, text: 'NC-MER ($ new-customer revenue per $1 spend)', font: { family: 'GeogrotesqueCondBoldWeb', size: 11 } },
+          ticks: { font: { family: 'BaseMonoWideWeb', size: 10 }, callback: v => v.toFixed(1) + 'x' },
+          grid: { color: '#ebebeb' },
+          beginAtZero: true,
+          suggestedMax: maxMer * 1.15,
+        },
+        y: {
+          ticks: { font: { family: 'RingsideWideWeb', size: 11 }, color: '#000' },
+          grid: { display: false }
+        }
+      },
+      animation: false,
+    },
+    plugins: [{
+      id: 'avgLineAndSpendLabels',
+      afterDraw: (chart) => {
+        const { ctx, chartArea, scales } = chart;
+        // Vertical line at category average
+        const xAvg = scales.x.getPixelForValue(avgMer);
+        ctx.save();
+        ctx.strokeStyle = '#000';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(xAvg, chartArea.top);
+        ctx.lineTo(xAvg, chartArea.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '10px BaseMonoWideWeb, monospace';
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'left';
+        ctx.fillText('Category avg ' + avgMer.toFixed(2) + 'x', xAvg + 6, chartArea.top + 12);
+        // Spend label to the right of each bar
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#757575';
+        chart.data.labels.forEach((label, i) => {
+          const barEnd = scales.x.getPixelForValue(mers[i]);
+          const y = scales.y.getPixelForValue(i);
+          ctx.fillText(fmtDK(spends[i]) + ' spend', barEnd + 8, y + 3);
+        });
+        ctx.restore();
       }
-    }
+    }]
   });
 }
 
